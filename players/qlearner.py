@@ -10,6 +10,8 @@ import itertools
 NB_SIMULATION = 100
 QVALUE_MATRIX = np.random.randint(40, size = (8960, 3) )
 PLAYER_NUM = 0
+ALPHA = 0.1
+GAMMA = 0.9
 
 
 class RLPlayer(BasePokerPlayer):
@@ -21,7 +23,7 @@ class RLPlayer(BasePokerPlayer):
         self._stages = [0, 1, 2, 3]
         self._pot_cutoff = [1, 2, 4, 5, 10, 15, 20, 25, 32.5, 40]
         self.STATES = list(itertools.product(self._raise_cutoff, self._stages, self._probability_cutoff, self._pot_cutoff, self._stack_cutoff))
-        self.ACTIONS = ['FOLD','BIGBLIND','RAISE','SMALLBLIND','CALL']
+        self.ACTIONS = ['FOLD','RAISE','CALL']
         self._pot = []
         self._previous_state = []
         self._stack = []
@@ -30,77 +32,6 @@ class RLPlayer(BasePokerPlayer):
         self._state = []
         self._raise = []
 
-
-    def qmatrix (self, valid_actions, hole_card, state):
-        n_players = 2
-        initial_player_stack = n_players * 1000
-        
-        my_uuid = state['seats'][ state['next_player'] ]['uuid']
-        
-        bb_amount = state['small_blind_amount'] * 2
-
-        #feature_arrays = [hole_values, hole_suits, river_values, 
-        # river_suits, total_pot_as_bb, own_stack_size, other_players_stack_sizes,
-        #  player_folds, money_since_our_last_move, amt_to_call, min_raise, max_raise]
-
-        probability = [0.2, 0.5, 0.75, 0.92]
-
-        #pot size
-        total_main_amount = state['pot']['main']['amount'] / bb_amount
-        my_pot_size = 0
-        pot_cutoff = [1, 2, 4, 5, 10, 15, 20, 25, 32.5, 40]
-        for i in range(0, len(pot_cutoff)):
-            if ( i == len(pot_cutoff) - 1):
-                my_pot_size = i
-            elif ( my_pot_size >= pot_cutoff[i] ):
-                continue
-            else:
-                my_pot_size = i
-                break
-
-        #total_side_pot = sum([a['amount'] for a in state['pot']['side']])
-        #total_pot_as_bb = [(total_main_amount + total_side_pot) / bb_amount]
-
-        #my stack size
-        my_stack_size = state['seats'][ state['next_player'] ]['stack'] / bb_amount
-        stack_cutoff = [5, 10, 15, 20, 25, 32.5, 40]
-        for i in range(0, len(stack_cutoff)):
-            if ( i == len(stack_cutoff) - 1):
-                my_stack_size = i
-            elif ( my_stack_size >= stack_cutoff[i] ):
-                continue
-            else:
-                my_stack_size = i
-                break
-
-        #others stack size
-        #other_stack = p['stack'] / bb_amount for p in game_state['seats'][player_idx + 1:]
-        stack_list = []
-        for player_info in state['seats']:
-            if (player_info['uuid'] == my_uuid):
-                continue
-            stack_list.append(player_info['stack'])
-
-        #get stage "preflop", "flop", "turn", "river"
-        stages = ["preflop", "flop", "turn", "river"]
-        present_stage = stages.index( state['street'] )
-
-        #get max raise
-        raise_max = valid_actions[2]['amount']['max'] / bb_amount
-        raise_cutoff = [1, 2, 4, 5, 10, 15, 20, 25]
-        for i in range(0, len(raise_cutoff)):
-            if ( i == len(raise_cutoff) - 1):
-                raise_max = i
-            elif ( raise_max >= raise_cutoff[i] ):
-                continue
-            else:
-                raise_max = i
-                break
-
-        np.random.randint(5, size=(2, 4))
-        states = list(itertools.product(raise_cutoff, stages, probability, pot_cutoff, stack_cutoff))
-        qmatrix = np.random.randint(40, size = (len(states), 3) )
-        return [my_stack_size, total_main_amount, stack_list, present_stage]
 
     # Setup Emulator object by registering game information
     def receive_game_start_message(self, game_info):
@@ -119,10 +50,7 @@ class RLPlayer(BasePokerPlayer):
         self.emulator = Emulator()
         self.emulator.set_game_rule(PLAYER_NUM, max_round, small_blind_amount, ante_amount)
         self.emulator.set_blind_structure(blind_structure)
-        print(PLAYER_NUM)
-        # Register algorithm of each player which used in the simulation.
-        for player_info in game_info["seats"]:
-            self.emulator.register_player(player_info["uuid"], RandomPlayer())
+
 
     def declare_action(self, valid_actions, hole_card, round_state):
         community_card = round_state['community_card']
@@ -132,8 +60,8 @@ class RLPlayer(BasePokerPlayer):
                 nb_simulation=NB_SIMULATION,
                 nb_player=self.nb_player,
                 hole_card=gen_cards(hole_card),
-                community_card=gen_cards(community_card)
-                )
+                community_card=gen_cards(community_card))
+
         self._probabilities.append([win_rate, round_state['street']])
         self._pot.append(round_state['pot']['main']['amount'] / big_blind)
         my_stack = 0
@@ -144,22 +72,70 @@ class RLPlayer(BasePokerPlayer):
         
         # GET RAISED AMOUNT
         total_raised_amount = 0
+        for i in ["preflop", "flop", "turn", "river"]:
+            if (i in round_state['action_histories']):
+                for y in round_state['action_histories'][i]:
+                    if (y['action'] == 'RAISE' and y['uuid'] != self._uuid):
+                        total_raised_amount += y['amount']
+
         total_raised_amount = (total_raised_amount / PLAYER_NUM) / big_blind
 
         for i in range(0, len(self._raise_cutoff)):
             if ( i == len(self._raise_cutoff) - 1):
-                self._raise.append(i)
+                self._raise.append(self._raise_cutoff[i])
             elif ( total_raised_amount >= self._raise_cutoff[i] ):
                 continue
             else:
-                self._raise.append(i)
+                self._raise.append(self._raise_cutoff[i])
+                break
+        
+        # GET PRESENT POT
+        present_pot = 0
+        for i in range(0, len(self._pot_cutoff)):
+            if ( i == len(self._pot_cutoff) - 1):
+                present_pot = self._pot_cutoff[i]
+            elif ( self._pot[-1] >= self._pot_cutoff[i] ):
+                continue
+            else:
+                present_pot = self._pot_cutoff[i]
                 break
 
+        # DISCRETIZE PRESENT STACK
+        present_stack = 0
+        for i in range(0, len(self._stack_cutoff)):
+            if ( i == len(self._stack_cutoff) - 1):
+                present_stack = self._stack_cutoff[i]
+            elif ( self._stack[-1] >= self._stack_cutoff[i] ):
+                continue
+            else:
+                present_stack = self._stack_cutoff[i]
+                break
+        
+        # DISCRETIZE PROBABILITIES
+        present_probability = -1
+        for i in range(0, len(self._probability_cutoff)):
+            if ( i == len(self._probability_cutoff) - 1):
+                present_probability = self._probability_cutoff[i]
+            elif ( self._probabilities[-1][0] >= self._probability_cutoff[i] ):
+                continue
+            else:
+                present_probability = self._probability_cutoff[i]
+                break 
 
-        if self.simul_result(round_state):
-            return "call", 10
-        else:
+        present_state = self.STATES.index( (self._raise[-1], ["preflop", "flop", "turn", "river"].index(self._probabilities[-1][1]), present_probability, present_pot, present_stack) )
+        action_todo = self.ACTIONS[np.argmax(QVALUE_MATRIX[present_state])]
+        print("**************************", action_todo)
+        if (action_todo == 'FOLD'):
             return "fold", 0
+        elif (action_todo == 'CALL'):
+            return "call", valid_actions[1]['amount']
+        else:
+            avg_raise = (valid_actions[2]['amount']['max'] + valid_actions[2]['amount']['min']) / 2.0
+            print(avg_raise)
+            if (avg_raise/3 <= 0):
+                return "raise", valid_actions[2]['amount']['min']
+            return "raise", int(np.random.poisson(avg_raise/3, 1))
+
 
     def simul_result(self, state):
         return True
@@ -175,22 +151,20 @@ class RLPlayer(BasePokerPlayer):
         pass
 
     def receive_round_result_message(self, winners, hand_info, round_state):
-        print(round_state)
 
         present_stack = -1
         for i in range(0, len(round_state['seats'])):
             if (round_state['seats'][i]['name'] == 'q-learning'):
                 present_stack = round_state['seats'][i]['stack']
-        #print(round_state)
 
         for i in ["preflop", "flop", "turn", "river"]:
             if (i in round_state['action_histories']):
                 for y in round_state['action_histories'][i]:
                     if (y['uuid'] == self._uuid):
-                        self._previous_state.append([y['action'], i])
+                        self._previous_state.append([y['action'], ["preflop", "flop", "turn", "river"].index(i)])
                     if (y['action'] == 'RAISE' and y['uuid'] != self._uuid):
                         total_raised_amount += y['amount']
-        #print(round_state)
+
         big_blind = round_state['small_blind_amount'] * 2
             
         # GET PROBABILITIES
@@ -199,12 +173,12 @@ class RLPlayer(BasePokerPlayer):
             for i in range(0, len(self._probability_cutoff)):
                 if ( i == len(self._probability_cutoff) - 1):
                     #probability_index.append(i)
-                    self._probabilities[prob][0] = i
+                    self._probabilities[prob][0] = self._probability_cutoff[i]
                 elif ( self._probabilities[prob][0] >= self._probability_cutoff[i] ):
                     continue
                 else:
                     #probability_index.append(i)
-                    self._probabilities[prob][0] = i
+                    self._probabilities[prob][0] = self._probability_cutoff[i]
                     break 
 
         # GET POT
@@ -213,11 +187,11 @@ class RLPlayer(BasePokerPlayer):
         for s in range(0, len(self._pot)):
             for i in range(0, len(self._pot_cutoff)):
                 if ( i == len(self._pot_cutoff) - 1):
-                    self._pot[s] = i
+                    self._pot[s] = self._pot_cutoff[i]
                 elif ( self._pot[s] >= self._pot_cutoff[i] ):
                     continue
                 else:
-                    self._pot[s] = i
+                    self._pot[s] = self._pot_cutoff[i]
                     break
         
         # DISCRETIZE STACK
@@ -225,26 +199,33 @@ class RLPlayer(BasePokerPlayer):
         for s in range(0, len(self._stack)):
             for i in range(0, len(self._stack_cutoff)):
                 if ( i == len(self._stack_cutoff) - 1):
-                    self._stack[s] = i
+                    self._stack[s] = self._stack_cutoff[i]
                 elif ( self._stack[s] >= self._stack_cutoff[i] ):
                     continue
                 else:
-                    self._stack[s] = i
+                    self._stack[s] = self._stack_cutoff[i]
                     break
-        
-        # BUILD STATES
-        print("OS")
-        print(self._probabilities)
-        for i in range(0, len(self._probabilities)):
-            print(len(self._probabilities), len(self._raise), len(self._pot), len(self._stack))
-        print("END ERGO")
 
         if (len(self._stack) > 0):
             reward = present_stack - self._stack[-1]
+
+        for i in range(0, len(self._probabilities)):
+            index = self.STATES.index( (self._raise[i], self._previous_state[i][1], self._probabilities[i][0], self._pot[i], self._stack[i]) )
+            if (i+1 == len(self._probabilities)):
+                index_next_state = index
+            else:
+                index_next_state = self.STATES.index( (self._raise[i+1], self._previous_state[i+1][1], self._probabilities[i+1][0], self._pot[i+1], self._stack[i+1]) )
+            if ( (self._previous_state[i][0] == "SMALLBLIND") or (self._previous_state[i][0] == "BIGBLIND") ):
+                self._previous_state[i][0] = "CALL"
+            action = self.ACTIONS.index(self._previous_state[i][0])
+            maxi = np.amax(QVALUE_MATRIX[index_next_state])
+            QVALUE_MATRIX[index][action] = QVALUE_MATRIX[index][action] + ALPHA * (reward + GAMMA * maxi - QVALUE_MATRIX[index][action])
+            print(QVALUE_MATRIX[index])
+
         self._stack = []
         self._previous_state = []
         self._probabilities = []
         self._pot = []
         self._raise = []
-
         pass
+
