@@ -69,7 +69,7 @@ class RLPlayer(BasePokerPlayer):
             if (round_state['seats'][i]['name'] == 'q-learning'):
                 my_stack = round_state['seats'][i]['stack']
                 self._stack.append(my_stack)
-        
+
         # GET RAISED AMOUNT
         total_raised_amount = 0
         for i in ["preflop", "flop", "turn", "river"]:
@@ -134,7 +134,7 @@ class RLPlayer(BasePokerPlayer):
             print(avg_raise)
             if (avg_raise/3 <= 0):
                 return "raise", valid_actions[2]['amount']['min']
-            return "raise", int(np.random.poisson(avg_raise/3, 1))
+            return "raise", int(np.random.poisson(avg_raise/40, 1))
 
 
     def simul_result(self, state):
