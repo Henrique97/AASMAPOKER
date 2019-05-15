@@ -13,11 +13,20 @@ class HonestPlayer(BasePokerPlayer):
                 hole_card=gen_cards(hole_card),
                 community_card=gen_cards(community_card)
                 )
+
         if win_rate >= 1.0 / self.nb_player:
             action = valid_actions[1]  # fetch CALL action info
+            amount = action['amount']
+        elif win_rate >= 0.95: #if win rate > 0.95 ALL-IN
+            action = valid_actions[2]
+            amount = action['amount']['max']
+        elif hole_card[0][1] == 'A' and hole_card[1][1] == "A": #if cards are Ace pair -> ALL-IN
+            action = valid_actions[2]
+            amount = action['amount']['max']
         else:
-            action = valid_actions[0]  # fetch FOLD action info
-        return action['action'], action['amount']
+            action = valid_actions[0] # fetch FOLD action info
+            amount = action['amount']
+        return action['action'], amount
 
     def receive_game_start_message(self, game_info):
         self.nb_player = game_info['player_num']
@@ -33,3 +42,4 @@ class HonestPlayer(BasePokerPlayer):
 
     def receive_round_result_message(self, winners, hand_info, round_state):
         pass
+
