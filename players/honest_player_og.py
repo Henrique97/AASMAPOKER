@@ -1,9 +1,11 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.utils.card_utils import gen_cards, estimate_hole_card_win_rate
 
-NB_SIMULATION = 1000
+NB_SIMULATION = 100
 
 class HonestPlayer(BasePokerPlayer):
+    def __init__(self, n_players):
+        self.nb_player = n_players
 
     def declare_action(self, valid_actions, hole_card, round_state):
         community_card = round_state['community_card']
