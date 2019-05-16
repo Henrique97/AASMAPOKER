@@ -16,7 +16,7 @@ GAMMA = 0.9
 
 class RLPlayer(BasePokerPlayer):
 
-    def __init__(self):
+    def __init__(self, nplayers):
         self._probability_cutoff = [0.2, 0.5, 0.75, 0.92]
         self._stack_cutoff = [5, 10, 15, 20, 25, 32.5, 40]
         self._raise_cutoff = [1, 2, 4, 5, 10, 15, 20, 25]
@@ -31,7 +31,7 @@ class RLPlayer(BasePokerPlayer):
         self._probabilities = []
         self._state = []
         self._raise = []
-
+        self.nb_player = nplayers
 
     # Setup Emulator object by registering game information
     def receive_game_start_message(self, game_info):
@@ -56,6 +56,7 @@ class RLPlayer(BasePokerPlayer):
         community_card = round_state['community_card']
         game_state = restore_game_state(round_state)
         big_blind = round_state['small_blind_amount'] * 2
+
         win_rate = estimate_hole_card_win_rate(
                 nb_simulation=NB_SIMULATION,
                 nb_player=self.nb_player,
@@ -78,7 +79,7 @@ class RLPlayer(BasePokerPlayer):
                     if (y['action'] == 'RAISE' and y['uuid'] != self._uuid):
                         total_raised_amount += y['amount']
 
-        total_raised_amount = (total_raised_amount / PLAYER_NUM) / big_blind
+        total_raised_amount = (total_raised_amount / self.nb_player) / big_blind
 
         for i in range(0, len(self._raise_cutoff)):
             if ( i == len(self._raise_cutoff) - 1):
@@ -131,7 +132,6 @@ class RLPlayer(BasePokerPlayer):
             return "call", valid_actions[1]['amount']
         else:
             avg_raise = (valid_actions[2]['amount']['max'] + valid_actions[2]['amount']['min']) / 2.0
-            print(avg_raise)
             if (avg_raise/3 <= 0):
                 return "raise", valid_actions[2]['amount']['min']
             return "raise", int(np.random.poisson(avg_raise/40, 1))
@@ -220,7 +220,6 @@ class RLPlayer(BasePokerPlayer):
             action = self.ACTIONS.index(self._previous_state[i][0])
             maxi = np.amax(QVALUE_MATRIX[index_next_state])
             QVALUE_MATRIX[index][action] = QVALUE_MATRIX[index][action] + ALPHA * (reward + GAMMA * maxi - QVALUE_MATRIX[index][action])
-            print(QVALUE_MATRIX[index])
 
         self._stack = []
         self._previous_state = []
