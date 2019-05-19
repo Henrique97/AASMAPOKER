@@ -1,2 +1,2 @@
 # AASMAPOKER
-Whatever
+Poker game with reinforcement learning
