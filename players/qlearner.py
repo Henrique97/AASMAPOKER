@@ -1,6 +1,6 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.api.emulator import Emulator
-from pypokerengine.utils.card_utils import gen_cards, estimate_hole_card_win_rate
+from pypokerengine.utils.card_utils import gen_cards, estimate_hole_card_win_rate, evaluate_hand
 from pypokerengine.utils.game_state_utils import restore_game_state
 
 import numpy as np
@@ -8,7 +8,7 @@ from random_player import RandomPlayer
 import itertools
 
 NB_SIMULATION = 100
-QVALUE_MATRIX = np.random.randint(40, size = (8960, 3) )
+QVALUE_MATRIX = np.random.randint(100, size = (324, 3) )
 PLAYER_NUM = 0
 ALPHA = 0.1
 GAMMA = 0.9
@@ -17,11 +17,11 @@ GAMMA = 0.9
 class RLPlayer(BasePokerPlayer):
 
     def __init__(self, nplayers, uuid):
-        self._probability_cutoff = [0.2, 0.5, 0.75, 0.92]
-        self._stack_cutoff = [5, 10, 15, 20, 25, 32.5, 40]
-        self._raise_cutoff = [1, 2, 4, 5, 10, 15, 20, 25]
+        self._probability_cutoff = [0.2, 0.62, 0.92]
+        self._stack_cutoff = [5, 20, 32.5]
+        self._raise_cutoff = [4, 10, 20]
         self._stages = [0, 1, 2, 3]
-        self._pot_cutoff = [1, 2, 4, 5, 10, 15, 20, 25, 32.5, 40]
+        self._pot_cutoff = [4, 15, 32.5]
         self.STATES = list(itertools.product(self._raise_cutoff, self._stages, self._probability_cutoff, self._pot_cutoff, self._stack_cutoff))
         self.ACTIONS = ['FOLD','RAISE','CALL']
         self._pot = []
@@ -125,8 +125,9 @@ class RLPlayer(BasePokerPlayer):
 
         if (len(self._stack) > 1):
             self.update_qmatrix()
-        #print( (self._raise[-1], ["preflop", "flop", "turn", "river"].index(self._probabilities[-1][1]), self._probabilities[-1][0], self._pot[-1], self._stack[-1]) )
+
         present_state = self.STATES.index( (self._raise[-1], ["preflop", "flop", "turn", "river"].index(self._probabilities[-1][1]), self._probabilities[-1][0], self._pot[-1], self._stack[-1]) )
+        #present_state = self.STATES.index( (self._probabilities[-1][0]) )
         action_todo = self.ACTIONS[np.argmax(QVALUE_MATRIX[present_state])]
         #print("**************************", action_todo)
         #print(QVALUE_MATRIX[0], self._stack[-1])
@@ -135,11 +136,12 @@ class RLPlayer(BasePokerPlayer):
         elif (action_todo == 'CALL'):
             return "call", valid_actions[1]['amount']
         else:
-            avg_raise = (valid_actions[2]['amount']['max'] + valid_actions[2]['amount']['min']) / 2.0
-            if (avg_raise/3 <= 0):
-                return "raise", valid_actions[2]['amount']['min']
-            raise_amount = int(np.random.poisson(avg_raise/40, 1))
-            #print(raise_amount  )
+            #avg_raise = (valid_actions[2]['amount']['max'] + valid_actions[2]['amount']['min']) / 2.0
+            #if (avg_raise/3 <= 0):
+            #    return "raise", valid_actions[2]['amount']['min']
+            #raise_amount = int(np.random.poisson(avg_raise/200, 1))
+            raise_amount = valid_actions[2]['amount']['min']
+            #print(raise_amount)
             return "raise", raise_amount
 
     def receive_round_start_message(self, round_count, hole_card, seats):
@@ -156,19 +158,20 @@ class RLPlayer(BasePokerPlayer):
 
     def update_qmatrix(self):
         i = -1
+        #print(self._stack)
         reward = self._stack[-1] - self._stack[-2]
         index = self.STATES.index( (self._raise[i], self._previous_state[i][1], self._probabilities[i][0], self._pot[i], self._stack[i]) )
+        #index = self.STATES.index( (self._probabilities[i][0]) )
         if (i+1 == len(self._probabilities)):
             index_next_state = index
         else:
             index_next_state = self.STATES.index( (self._raise[i+1], self._previous_state[i+1][1], self._probabilities[i+1][0], self._pot[i+1], self._stack[i+1]) )
+            #index_next_state = self.STATES.index( (self._probabilities[i+1][0]) )
         if ( (self._previous_state[i][0] == "SMALLBLIND") or (self._previous_state[i][0] == "BIGBLIND") ):
             self._previous_state[i][0] = "CALL"
         action = self.ACTIONS.index(self._previous_state[i][0])
         maxi = np.amax(QVALUE_MATRIX[index_next_state])
-        #print("BEFORE", QVALUE_MATRIX[index])
         QVALUE_MATRIX[index][action] = QVALUE_MATRIX[index][action] + ALPHA * (reward + GAMMA * maxi - QVALUE_MATRIX[index][action])
-        #print("AFTER", QVALUE_MATRIX[index])
     
     def clear_stack(self):
         self._probabilities = []
