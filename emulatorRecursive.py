@@ -12,7 +12,7 @@ emulator = Emulator()
 #quuid = "uuid-q"
 p_uuid=["high-iq","low-iq","low-iq2","low-iq3"]
 #qlearner_player = RLPlayer(n_players, quuid)
-monte_carlos_tries=[[1,10],[1,100],[1,1000],[1,10000],[10,100],[10,1000],[100,1000],[100,10000]]
+monte_carlos_tries=[[1,10],[1,100],[1,1000],[10,100],[10,1000],[100,1000]]
 for tryM in monte_carlos_tries:
 	df = pd.DataFrame(columns = ['uuid', 'stack', 'game'])
 	for i in range(0,2):
@@ -21,10 +21,10 @@ for tryM in monte_carlos_tries:
 		df2 = pd.DataFrame(columns = ['uuid', 'stack', 'round'])
 		df3 = pd.DataFrame(columns = ['uuid', 'stack', 'round'])
 		df4 = pd.DataFrame(columns = ['uuid', 'stack', 'round'])
-		emulator.register_player(uuid=p_uuid[0], player=HonestPlayer(n_players,tryM[1]))
-		emulator.register_player(uuid=p_uuid[1], player=HonestPlayer(n_players,tryM[0]))
-		emulator.register_player(uuid=p_uuid[2], player=HonestPlayer(n_players,tryM[0]))
-		emulator.register_player(uuid=p_uuid[3], player=HonestPlayer(n_players,tryM[0]))
+		emulator.register_player(uuid=p_uuid[0], player=RiskyPlayer(n_players,tryM[1]))
+		emulator.register_player(uuid=p_uuid[1], player=RiskyPlayer(n_players,tryM[0]))
+		emulator.register_player(uuid=p_uuid[2], player=RiskyPlayer(n_players,tryM[0]))
+		emulator.register_player(uuid=p_uuid[3], player=RiskyPlayer(n_players,tryM[0]))
 		emulator.set_game_rule(player_num=4, max_round=1000, small_blind_amount=20, ante_amount=0)
 		# 2. Setup GameState object
 		players_info = {
@@ -52,9 +52,9 @@ for tryM in monte_carlos_tries:
 							
 		for player in events[-1]['players']:
 			df = df.append({'uuid' : player['uuid'] , 'stack' : player['stack'], 'game' : i} , ignore_index=True)
-		df1.to_csv("recJob/gameAllroundsP1_try_" + str(j) + "_game_" + str(i) + ".csv")
-		df2.to_csv("recJob/gameAllroundsP2_try_"+ str(j) + "_game_" + str(i) + ".csv")
-		df3.to_csv("recJob/gameAllroundsP3_try_"+ str(j) + "_game_" + str(i) + ".csv")
-		df4.to_csv("recJob/gameAllroundsP4_try_"+ str(j) + "_game_" + str(i) + ".csv")
-	df.to_csv("recJob/gameresults_try" + str(j) + ".csv")
+		df1.to_csv("recJob2/gameAllroundsP1_try_" + str(j) + "_game_" + str(i) + ".csv")
+		df2.to_csv("recJob2/gameAllroundsP2_try_"+ str(j) + "_game_" + str(i) + ".csv")
+		df3.to_csv("recJob2/gameAllroundsP3_try_"+ str(j) + "_game_" + str(i) + ".csv")
+		df4.to_csv("recJob2/gameAllroundsP4_try_"+ str(j) + "_game_" + str(i) + ".csv")
+	df.to_csv("recJob2/gameresults_try" + str(j) + ".csv")
 	j+=1

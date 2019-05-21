@@ -1,16 +1,18 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.utils.card_utils import gen_cards, estimate_hole_card_win_rate
+import pandas as pd
 
-NB_SIMULATION = 100
+#NB_SIMULATION = 100
 
 class HonestPlayer(BasePokerPlayer):
-    def __init__(self, n_players):
+    def __init__(self, n_players, sims):
         self.nb_player = n_players
+        self.nb_simulations = sims
 
     def declare_action(self, valid_actions, hole_card, round_state):
         community_card = round_state['community_card']
         win_rate = estimate_hole_card_win_rate(
-                nb_simulation=NB_SIMULATION,
+                nb_simulation=self.nb_simulations,
                 nb_player=self.nb_player,
                 hole_card=gen_cards(hole_card),
                 community_card=gen_cards(community_card)
