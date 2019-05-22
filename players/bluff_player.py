@@ -1,7 +1,7 @@
 from pypokerengine.players import BasePokerPlayer
 from pypokerengine.utils.card_utils import gen_cards, estimate_hole_card_win_rate
 
-NB_SIMULATION = 1000
+NB_SIMULATION = 500
 
 
 class BluffPlayer(BasePokerPlayer):
@@ -10,14 +10,14 @@ class BluffPlayer(BasePokerPlayer):
         community_card = round_state['community_card']
         win_rate = estimate_hole_card_win_rate(
             nb_simulation=NB_SIMULATION,
-            nb_player=self.nb_player,
+            nb_player=2,
             hole_card=gen_cards(hole_card),
             community_card=gen_cards(community_card)
         )
 
         can_raise = len([item for item in valid_actions if item['action'] == 'raise']) > 0
 
-        if win_rate >= 1.0 / self.nb_player:
+        if win_rate >= 1.0 / 2:
             if win_rate > 0.6:
                 if can_raise:
                     action = valid_actions[2]

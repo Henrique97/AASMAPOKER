@@ -6,7 +6,7 @@ NB_SIMULATION = 1000
 
 class RiskyPlayer(BasePokerPlayer):
 
-	def __init__(self, n_players=4,sims=200,perc_risk=0.7):
+	def __init__(self, n_players=4,sims=500,perc_risk=0.7):
 		self.nb_player = n_players
 		self.sims = sims
 		self.risk = perc_risk
@@ -19,13 +19,23 @@ class RiskyPlayer(BasePokerPlayer):
 				hole_card=gen_cards(hole_card),
 				community_card=gen_cards(community_card)
 				)
-		if win_rate >= 1.0 / self.nb_player:
-			action = valid_actions[1]  # fetch CALL action info
+				
+		can_raise = len([item for item in valid_actions if item['action'] == 'raise']) > 0
+		amount=0
+		if win_rate >= 0.8:
+			if can_raise:
+				action = valid_actions[2]
+				amount = (action['amount']['min'] + action['amount']['max']) /2.0
+			else:
+				action = valid_actions[1]
+				amount = action['amount']
 		elif win_rate >= self.risk / self.nb_player and len(round_state['community_card'])!=5:
 			action = valid_actions[1]  # fetch CALL action info
+			amount = action['amount']
 		else:
 			action = valid_actions[0]  # fetch FOLD action info
-		return action['action'], action['amount']
+			amount = action['amount']
+		return action['action'], amount
 
 	def receive_game_start_message(self, game_info):
 		pass
