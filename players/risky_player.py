@@ -6,9 +6,10 @@ NB_SIMULATION = 1000
 
 class RiskyPlayer(BasePokerPlayer):
 
-	def __init__(self, n_players,sims):
+	def __init__(self, n_players=4,sims=200,perc_risk=0.7):
 		self.nb_player = n_players
 		self.sims = sims
+		self.risk = perc_risk
 	
 	def declare_action(self, valid_actions, hole_card, round_state):
 		community_card = round_state['community_card']
@@ -20,7 +21,7 @@ class RiskyPlayer(BasePokerPlayer):
 				)
 		if win_rate >= 1.0 / self.nb_player:
 			action = valid_actions[1]  # fetch CALL action info
-		elif win_rate >= 0.7 / self.nb_player and len(round_state['community_card'])!=5:
+		elif win_rate >= self.risk / self.nb_player and len(round_state['community_card'])!=5:
 			action = valid_actions[1]  # fetch CALL action info
 		else:
 			action = valid_actions[0]  # fetch FOLD action info
@@ -41,3 +42,5 @@ class RiskyPlayer(BasePokerPlayer):
 	def receive_round_result_message(self, winners, hand_info, round_state):
 		self.risk=1
 	
+	def setup_ai():
+		return FishPlayer()

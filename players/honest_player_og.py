@@ -10,18 +10,18 @@ class HonestPlayer(BasePokerPlayer):
         self.nb_simulations = sims
 
     def declare_action(self, valid_actions, hole_card, round_state):
-        community_card = round_state['community_card']
-        win_rate = estimate_hole_card_win_rate(
-                nb_simulation=self.nb_simulations,
-                nb_player=self.nb_player,
-                hole_card=gen_cards(hole_card),
-                community_card=gen_cards(community_card)
-                )
-        if win_rate >= 1.0 / self.nb_player:
-            action = valid_actions[1]  # fetch CALL action info
-        else:
-            action = valid_actions[0]  # fetch FOLD action info
-        return action['action'], action['amount']
+		community_card = round_state['community_card']
+		win_rate = estimate_hole_card_win_rate(
+				nb_simulation=self.nb_simulations,
+				nb_player=self.nb_player,
+				hole_card=gen_cards(hole_card),
+				community_card=gen_cards(community_card)
+				)
+		if win_rate >= 1.0 / self.nb_player:
+			action = valid_actions[1]  # fetch CALL action info
+		else:
+			action = valid_actions[0]  # fetch FOLD action info
+		return action['action'], action['amount']
 
     def receive_game_start_message(self, game_info):
         self.nb_player = game_info['player_num']
